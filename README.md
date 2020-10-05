@@ -18,5 +18,5 @@ Microservice that produces reports on currency changes through fixer_proxy servi
 ## Usage
 `ruby generate.rb`
 It will generate report for the current calendar_date.
-Depending on the enabled environment, it will be stored
+Depending on the enabled environment, it will be stored to S3 bucket.
 
