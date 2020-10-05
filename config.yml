@@ -1,6 +1,3 @@
-aws:
-  key_id: <%= ENV['AWS_KEY_ID'] %>
-  secret_key: <%= ENV['AWS_SECRET_KEY'] %>
 environment: development
 fixer_proxy_domain: http://localhost
 fixer_proxy_port: 4567
