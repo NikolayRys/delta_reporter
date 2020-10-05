@@ -1,13 +1,8 @@
 require 'dotenv/load'
-require 'erb'
 require 'yaml'
 require 'httparty'
 require 'timerizer'
-
-def load_config
-  yaml_content = File.read('config.yml')
-  YAML.load(ERB.new(yaml_content).result(binding))
-end
+require 'aws-sdk-s3'
 
 def get_ratios_for_day(date, currencies)
   date_url = "#{CONFIG['fixer_proxy_domain']}:#{CONFIG['fixer_proxy_port']}/#{date}"
@@ -19,9 +14,10 @@ end
 def create_report_file(today, report_hash, format)
   if CONFIG['formats'].include?(format)
     require_relative "formatters/#{format}"
-    file_name = "reports/#{today}.#{format}"
-    File.write(file_name, send("to_#{format}", report_hash))
-    file_name
+    file_path = "reports/#{today}.#{format}"
+    File.write(file_path, send("to_#{format}", report_hash))
+    puts "Generated #{file_path}"
+    file_path
   end
 end
 
@@ -29,7 +25,7 @@ def get_delta(symbol, start_rates, end_rates)
   (start_rates[symbol] - end_rates[symbol]).round(6)
 end
 
-CONFIG = load_config
+CONFIG = YAML.load(File.read('config.yml'))
 
 currencies = CONFIG['currencies']
 today = Date.today.to_s
@@ -58,16 +54,13 @@ created_files << create_report_file(today, report_hash, 'html')
 
 
 if CONFIG['environment'] == 'production'
-  require 'aws-sdk-s3'
-  puts '** UPLOADING TO AWS S3 **'
+  s3 = Aws::S3::Resource.new(region: 'eu-west-3')
 
-
-  created_files.compact.each do |file_name|
-    puts file_name
+  created_files.compact.each do |file_path|
+    obj = s3.bucket('freska').object(File.basename(file_path))
+    obj.upload_file(file_path)
+    puts "Uploaded to AWS: #{file_path}"
   end
-
-  s3 = Aws::S3::Resource.new(region: 'us-west-3')
-
 end
 
 
