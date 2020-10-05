@@ -16,6 +16,15 @@ def get_ratios_for_day(date, currencies)
   response.fetch('rates', {})
 end
 
+def create_report_file(today, report_hash, format)
+  if CONFIG['formats'].include?(format)
+    require_relative "formatters/#{format}"
+    file_name = "reports/#{today}.#{format}"
+    File.write(file_name, send("to_#{format}", report_hash))
+    file_name
+  end
+end
+
 CONFIG = load_config
 
 currencies = CONFIG['currencies']
@@ -29,7 +38,7 @@ rates_year_ago = get_ratios_for_day(1.year.ago.to_date, currencies)
 
 report_hash = currencies.each_with_object({}) do |symbol, result|
   result[symbol] = {
-    current_value: rates_today[symbol],
+    current: rates_today[symbol],
     since_yesterday: (rates_yesterday[symbol] - rates_today[symbol]).round(6),
     since_week_ago: (rates_week_ago[symbol] - rates_today[symbol]).round(6),
     since_month_ago: (rates_month_ago[symbol] - rates_today[symbol]).round(6),
@@ -39,31 +48,21 @@ end
 
 
 created_files = []
-
-if CONFIG['formats'].include?('json')
-  file_name = "reports/#{today}.json"
-  File.write(file_name, report_hash.to_json)
-  created_files << file_name
-end
-
-if CONFIG['formats'].include?('csv')
-  require_relative 'formatters/csv'
-end
-
-if CONFIG['formats'].include?('xml')
-  require_relative 'formatters/xml'
-end
-
-if CONFIG['formats'].include?('html')
-  require_relative 'formatters/html'
-end
+created_files << create_report_file(today, report_hash, 'json')
+created_files << create_report_file(today, report_hash, 'csv')
+created_files << create_report_file(today, report_hash, 'xml')
+created_files << create_report_file(today, report_hash, 'html')
 
 
 if CONFIG['environment'] == 'production'
   puts '** UPLOADING TO AWS S3 **'
   require 'aws-sdk-s3'
-  s3 = Aws::S3::Resource.new(region: 'us-west-3')
 
+  created_files.compact.each do |file_name|
+    puts file_name
+  end
+
+  s3 = Aws::S3::Resource.new(region: 'us-west-3')
 
 end
 
